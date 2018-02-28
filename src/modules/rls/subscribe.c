@@ -272,12 +272,10 @@ int rls_get_service_list(str *service_uri, str *user, str *domain,
 		LM_DBG("service uri %.*s not found in rl document for user"
 				" sip:%.*s@%.*s\n", service_uri->len, service_uri->s,
 				user->len, user->s, domain->len, domain->s);
-		rootdoc = NULL;
 		if(xmldoc!=NULL)
 			xmlFreeDoc(xmldoc);
-	}
-	else
-	{
+		*rootdoc = NULL;
+	} else {
 		*rootdoc = xmldoc;
 	}
 
@@ -290,8 +288,6 @@ int rls_get_service_list(str *service_uri, str *user, str *domain,
 error:
 	if(result!=NULL)
 		rls_xcap_dbf.free_result(rls_xcap_db, result);
-	if(xmldoc!=NULL)
-		xmlFreeDoc(xmldoc);
 	if(xcapdoc!=NULL)
 		pkg_free(xcapdoc);
 
@@ -483,7 +479,6 @@ int rls_handle_subscribe(struct sip_msg* msg, str watcher_user, str watcher_doma
 	pres_ev_t* event = NULL;
 	int err_ret = -1;
 	int ret = to_presence_code;
-	str* contact = NULL;
 	xmlDocPtr doc = NULL;
 	xmlNodePtr service_node = NULL;
 	unsigned int hash_code=0;
@@ -806,13 +801,6 @@ done:
 	ret = 1;
 stop:
 forpresence:
-	if(contact!=NULL)
-	{
-		if(contact->s!=NULL)
-			pkg_free(contact->s);
-		pkg_free(contact);
-	}
-
 	if(subs.pres_uri.s!=NULL)
 		pkg_free(subs.pres_uri.s);
 	if(subs.record_route.s!=NULL)
@@ -833,13 +821,6 @@ bad_event:
 
 error:
 	LM_ERR("occurred in rls_handle_subscribe\n");
-
-	if(contact!=NULL)
-	{
-		if(contact->s!=NULL)
-			pkg_free(contact->s);
-		pkg_free(contact);
-	}
 	if(subs.pres_uri.s!=NULL)
 		pkg_free(subs.pres_uri.s);
 

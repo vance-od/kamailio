@@ -209,6 +209,7 @@ static int pv_parse_var(str *inp, pv_elem_t **outp, int *got_any);
 static int mos_label_stats_parse(struct minmax_mos_label_stats *mmls);
 static void parse_call_stats(bencode_item_t *, struct sip_msg *);
 
+static int control_cmd_tos = -1; 
 static int rtpengine_allow_op = 0;
 static struct rtpp_node **queried_nodes_ptr = NULL;
 static pid_t mypid;
@@ -336,10 +337,12 @@ static param_export_t params[] = {
 	{"rtpengine_sock",        PARAM_STRING|USE_FUNC_PARAM,
 	                         (void*)rtpengine_set_store          },
 	{"rtpengine_disable_tout",INT_PARAM, &default_rtpengine_cfg.rtpengine_disable_tout },
+	{"aggressive_redetection",INT_PARAM, &default_rtpengine_cfg.aggressive_redetection },
 	{"rtpengine_retr",        INT_PARAM, &default_rtpengine_cfg.rtpengine_retr         },
 	{"queried_nodes_limit",   INT_PARAM, &default_rtpengine_cfg.queried_nodes_limit    },
 	{"rtpengine_tout_ms",     INT_PARAM, &default_rtpengine_cfg.rtpengine_tout_ms      },
 	{"rtpengine_allow_op",    INT_PARAM, &rtpengine_allow_op     },
+	{"control_cmd_tos",       INT_PARAM, &control_cmd_tos        }, 
 	{"db_url",                PARAM_STR, &rtpp_db_url            },
 	{"table_name",            PARAM_STR, &rtpp_table_name        },
 	{"setid_col",             PARAM_STR, &rtpp_setid_col         },
@@ -733,14 +736,6 @@ struct rtpp_set *get_rtpp_set(unsigned int set_id)
 	unsigned int my_current_id = 0;
 	int new_list;
 
-#if DEFAULT_RTPP_SET_ID > 0
-	if (set_id < DEFAULT_RTPP_SET_ID )
-	{
-		LM_ERR(" invalid rtpproxy set value [%u]\n", set_id);
-		return NULL;
-	}
-#endif
-
 	my_current_id = set_id;
 	/*search for the current_id*/
 	lock_get(rtpp_set_list->rset_head_lock);
@@ -797,7 +792,7 @@ struct rtpp_set *get_rtpp_set(unsigned int set_id)
 		rtpp_set_list->rset_last = rtpp_list;
 		rtpp_set_count++;
 
-		if(my_current_id == DEFAULT_RTPP_SET_ID){
+		if(my_current_id == setid_default){
 			default_rtpp_set = rtpp_list;
 		}
 	}
@@ -1009,7 +1004,7 @@ static int rtpengine_add_rtpengine_set(char * rtp_proxies, unsigned int weight, 
 		rtp_proxies+=2;
 	}else{
 		rtp_proxies = p;
-		my_current_id = DEFAULT_RTPP_SET_ID;
+		my_current_id = setid_default;
 	}
 
 	for(;*rtp_proxies && isspace(*rtp_proxies);rtp_proxies++);
@@ -1489,10 +1484,6 @@ mod_init(void)
 		}
 	}
 
-	/* any rtpproxy configured? */
-	if (rtpp_set_list)
-		default_rtpp_set = select_rtpp_set(DEFAULT_RTPP_SET_ID);
-
 	if (rtp_inst_pv_param.s) {
 		rtp_inst_pv_param.len = strlen(rtp_inst_pv_param.s);
 		rtp_inst_pvar = pv_cache_get(&rtp_inst_pv_param);
@@ -1685,6 +1676,20 @@ static int build_rtpp_socks() {
 					sizeof(ip_mtu_discover)))
 				LM_WARN("Failed enable set MTU discovery socket option\n");
 #endif
+
+			if((0 <= control_cmd_tos) && (control_cmd_tos < 256)) {
+				unsigned char tos = control_cmd_tos;
+				if (pnode->rn_umode == 6) {
+					setsockopt(rtpp_socks[pnode->idx], IPPROTO_IPV6,
+							IPV6_TCLASS, &control_cmd_tos,
+							sizeof(control_cmd_tos));
+
+				} else {
+					setsockopt(rtpp_socks[pnode->idx], IPPROTO_IP,
+							IP_TOS, &tos,
+							sizeof(tos));
+				}
+			}
 
 			if (bind_force_send_ip(pnode->idx) == -1) {
 				LM_ERR("can't bind socket\n");
@@ -2610,6 +2615,10 @@ retry:
 
 	/* No proxies? Force all to be redetected, if not yet */
 	if (weight_sum == 0) {
+		if (!cfg_get(rtpengine,rtpengine_cfg,aggressive_redetection)) {
+			return NULL;
+		}
+
 		if (was_forced) {
 			return NULL;
 		}
@@ -3358,12 +3367,17 @@ rtpengine_offer_answer(struct sip_msg *msg, const char *flags, int op, int more)
 			pkg_free(newbody.s);
 
 		} else {
-			/* get the body from the message as body ptr may have changed */
-			cur_body.len = 0;
-			cur_body.s = get_body(msg);
-			cur_body.len = msg->buf + msg->len - cur_body.s;
+			if (read_sdp_pvar_str.len > 0) {
+				/* get the body from the message as body ptr may have changed
+				 * when using read_sdp_pv */
+				cur_body.len = 0;
+				cur_body.s = get_body(msg);
+				cur_body.len = msg->buf + msg->len - cur_body.s;
 
-			anchor = del_lump(msg, cur_body.s - msg->buf, cur_body.len, 0);
+				anchor = del_lump(msg, cur_body.s - msg->buf, cur_body.len, 0);
+			} else {
+				anchor = del_lump(msg, body.s - msg->buf, body.len, 0);
+			}
 			if (!anchor) {
 				LM_ERR("del_lump failed\n");
 				goto error_free;

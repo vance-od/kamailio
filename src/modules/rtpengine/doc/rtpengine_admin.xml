@@ -197,6 +197,33 @@ modparam("rtpengine", "rtpengine_disable_tout", 20)
 </programlisting>
 		</example>
 	</section>
+	<section id="rtpengine.p.aggressive_redetection">
+		<title><varname>aggressive_redetection</varname> (integer)</title>
+		<para>
+		This parameter determines what happens when all potential rtpengines are found
+		to be unreachable. If enabled, the sip server will send pings to all rtpengines,
+		else no rtpengine will pe queried until its rtpengine_disable_tout timeout passes.
+		</para>
+		<para>
+		<emphasis>
+			Default value is <quote>1</quote>.
+		</emphasis>
+		</para>
+		<para>
+			Can be set at runtime, e.g.:
+			<programlisting>
+			$ &sercmd; cfg.set_now_int rtpengine aggressive_redetection 0
+			</programlisting>
+		</para>
+		<example>
+		<title>Set <varname>aggressive_redetection</varname> parameter</title>
+		<programlisting format="linespecific">
+...
+modparam("rtpengine", "aggressive_redetection", 0)
+...
+</programlisting>
+		</example>
+	</section>
 	<section id="rtpengine.p.rtpengine_tout_ms">
 		<title><varname>rtpengine_tout_ms</varname> (integer)</title>
 		<para>
@@ -1933,6 +1960,27 @@ modparam("rtpengine", "mos_average_roundtrip_B_pv", "$avp(mos_average_roundtrip_
 <programlisting format="linespecific">
 ...
 modparam("rtpengine", "mos_average_samples_B_pv", "$avp(mos_average_samples_B)")
+...
+</programlisting>
+		</example>
+	</section>
+
+	<section id="rtpengine.p.control_cmd_tos">
+		<title><varname>control_cmd_tos</varname> (integer)</title>
+		<para>
+			The parameter is used to set the value of <quote>type of service (tos)</quote> for the control commands (such as rtpengine_offer(), rtpengine_answer() etc).
+		</para>
+		<para>
+			There is no default value. By default this feature is not used.
+		</para>
+		<para>
+			The values not falling into the range <quote>0-255</quote> will be simply ignored.
+		</para>
+		<example>
+		<title>Set <varname>control_cmd_tos</varname> parameter</title>
+<programlisting format="linespecific">
+...
+modparam("rtpengine", "control_cmd_tos", "144")
 ...
 </programlisting>
 		</example>

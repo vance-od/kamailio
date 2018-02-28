@@ -2351,7 +2351,7 @@ int raw_capture_rcv_loop(int rsock, int port1, int port2, int ipip)
 
 		/* if the message has not alpha */
 		if(!isalnum((buf + offset)[0])) {
-			DBG("not alpha and not digit... skiping...\n");
+			DBG("not alpha and not digit... skipping...\n");
 			continue;
 		}
 
@@ -3030,7 +3030,7 @@ static int pv_parse_hep_name(pv_spec_p sp, str *in)
 	if(sp == NULL || in == NULL || in->len <= 0)
 		return -1;
 
-	LM_ERR("REQUEST, PRE, %.*s\n", in->len, in->s);
+	LM_DBG("REQUEST, PRE, %.*s\n", in->len, in->s);
 
 	switch(in->len) {
 		case 5: {

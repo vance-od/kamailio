@@ -1291,7 +1291,7 @@ static void dispatcher_rpc_list(rpc_t *rpc, void *ctx)
 	int ds_list_nr = ds_get_list_nr();
 
 	if(ds_list == NULL || ds_list_nr <= 0) {
-		LM_ERR("no destination sets\n");
+		LM_DBG("no destination sets\n");
 		rpc->fault(ctx, 500, "No Destination Sets");
 		return;
 	}
@@ -1360,9 +1360,13 @@ static void dispatcher_rpc_set_state(rpc_t *rpc, void *ctx)
 		return;
 	}
 
-	if(ds_reinit_state(group, &dest, stval) < 0) {
-		rpc->fault(ctx, 500, "State Update Failed");
-		return;
+	if(dest.len == 3 && strncmp(dest.s, "all", 3) == 0) {
+		ds_reinit_state_all(group, stval);
+	} else {
+		if(ds_reinit_state(group, &dest, stval) < 0) {
+			rpc->fault(ctx, 500, "State Update Failed");
+			return;
+		}
 	}
 
 	return;
